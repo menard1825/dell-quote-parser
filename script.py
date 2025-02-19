@@ -16,20 +16,28 @@ def extract_text_from_pdf(pdf_path):
 def extract_text_from_html(html_content):
     """Extracts relevant text from an HTML file (only descriptions & quantities)."""
     soup = BeautifulSoup(html_content, "html.parser")
-    text = ""
+    extracted_text = ""
 
-    # Find all table rows and extract description + quantity
     for row in soup.find_all("tr"):
         cols = row.find_all("td")
         if len(cols) >= 2:  # Ensure at least description + quantity
             description = cols[0].get_text(strip=True)
             qty = cols[-1].get_text(strip=True)  # Quantity is usually in the last column
             
-            # Skip headers and irrelevant rows
-            if description.lower() != "description" and qty.isdigit():
-                text += f"{description}  {qty}\n"
-    
-    return text
+            # Ensure qty is a number and description is valid
+            if description.lower() not in ["description", "qty", "quantity"] and qty.isdigit():
+                extracted_text += f"{description}  {qty}\n"
+
+    return extracted_text
+
+def clean_text(text):
+    """Removes pricing, SKUs, and unnecessary text."""
+    cleaned_lines = []
+    for line in text.split("\n"):
+        # Remove lines containing prices ($), SKU-like patterns (e.g., 210-BLLB), or dashes
+        if not re.search(r"\$\d+|\d{2,}-\w{2,}|^-+$", line):
+            cleaned_lines.append(line)
+    return "\n".join(cleaned_lines)
 
 def separate_products(text):
     """Separates multiple Dell products in the quote."""
@@ -55,7 +63,7 @@ def extract_specs(product_text):
     """Extracts and formats only descriptions and quantities."""
     lines = product_text.split("\n")
     formatted_specs = []
-    
+
     # Detect product title
     product_title = None
     for line in lines:
@@ -94,6 +102,9 @@ def main():
 
         elif file_type == "text/html":
             extracted_text = extract_text_from_html(uploaded_file.getvalue().decode("utf-8"))
+
+        # Clean up text (remove prices and SKUs)
+        extracted_text = clean_text(extracted_text)
 
         # Process and format the extracted text
         product_sections = separate_products(extracted_text)
