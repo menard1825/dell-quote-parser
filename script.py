@@ -45,16 +45,19 @@ def separate_products(text):
     return products
 
 def extract_specs(product_text):
-    """Formats each product's specs properly."""
+    """Parses and formats each product's specs correctly."""
     lines = product_text.split("\n")
     formatted_specs = []
 
-    # Detect product title
+    # Detect product title and quantity
     product_title = "Unknown Product"
+    quantity = 1
     for line in lines:
         if re.search(r"(Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
             product_title = line.strip()
-            break  # Stop after finding the first match
+        match_qty = re.search(r"Qty[:]? (\d+)", line, re.IGNORECASE)
+        if match_qty:
+            quantity = match_qty.group(1)
 
     formatted_specs.append(f"### **{product_title} - Custom Configuration**\n")
 
@@ -78,7 +81,7 @@ def main():
         product_sections = separate_products(raw_text)
 
         formatted_outputs = []
-        for i, product_text in enumerate(product_sections):
+        for product_text in product_sections:
             formatted_specs = extract_specs(product_text)
             formatted_outputs.append(formatted_specs)
 
