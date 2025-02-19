@@ -49,21 +49,26 @@ def extract_specs(product_text):
     lines = product_text.split("\n")
     formatted_specs = []
 
-    # Detect product title and quantity
-    product_title = "Unknown Product"
+    # Detect product title
+    product_title = None
     for line in lines:
-        if re.search(r"(Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
-            product_title = line.strip()
+        match_title = re.search(r"(Precision|Latitude|OptiPlex|Workstation) .*", line, re.IGNORECASE)
+        if match_title:
+            product_title = match_title.group(0).strip()
             break  # Stop after finding the first match
+
+    if not product_title:
+        return ""  # Skip empty products
 
     formatted_specs.append(f"### **{product_title} - Custom Configuration**\n")
 
     for line in lines:
-        match = re.match(r"(.*?)\s{2,}(.*?)\s{2,}(\d+)", line)  # Adjusted regex
+        # Match lines that contain description and quantity
+        match = re.match(r"(.+?)\s{2,}(.+?)\s{2,}(\d+)$", line)  # Only capture description and qty
         if match:
             category, description, qty = match.groups()
 
-            # Remove SKU-like entries and pricing info
+            # Exclude SKUs, pricing, and other unnecessary details
             if not re.search(r"\d{2,}-\w{2,}", description) and "$" not in description:
                 formatted_specs.append(f"**{category.strip()}**: {description.strip()} *(Qty: {qty})*")
 
@@ -83,7 +88,8 @@ def main():
         formatted_outputs = []
         for product_text in product_sections:
             formatted_specs = extract_specs(product_text)
-            formatted_outputs.append(formatted_specs)
+            if formatted_specs:
+                formatted_outputs.append(formatted_specs)
 
         final_output = "\n\n---\n\n".join(formatted_outputs)
 
