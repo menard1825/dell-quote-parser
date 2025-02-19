@@ -7,12 +7,17 @@ def format_input_data(raw_text):
     formatted_output = []
     
     # Extract and format data
+    first_line = True
     for line in lines:
         parts = line.split("\t")  # Tab-separated columns
         if len(parts) >= 5:  # Ensure correct structure
             category = parts[0].strip()
             description = parts[1].strip()
             qty = parts[4].strip()
+            
+            if first_line:
+                formatted_output.append(f"### **{description} - Custom Configuration**\n")
+                first_line = False
             
             formatted_output.append(f"- **{category}**: {description} (Qty: {qty})")
     
