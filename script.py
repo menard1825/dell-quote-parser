@@ -1,6 +1,7 @@
 import pdfplumber
 import re
 import streamlit as st
+from bs4 import BeautifulSoup
 
 def extract_text_from_pdf(pdf_path):
     """Extracts text from PDF."""
@@ -12,6 +13,24 @@ def extract_text_from_pdf(pdf_path):
                 text += extracted_text + "\n"
     return text
 
+def extract_text_from_html(html_content):
+    """Extracts relevant text from an HTML file (only descriptions & quantities)."""
+    soup = BeautifulSoup(html_content, "html.parser")
+    text = ""
+
+    # Find all table rows and extract description + quantity
+    for row in soup.find_all("tr"):
+        cols = row.find_all("td")
+        if len(cols) >= 2:  # Ensure at least description + quantity
+            description = cols[0].get_text(strip=True)
+            qty = cols[-1].get_text(strip=True)  # Quantity is usually in the last column
+            
+            # Skip headers and irrelevant rows
+            if description.lower() != "description" and qty.isdigit():
+                text += f"{description}  {qty}\n"
+    
+    return text
+
 def separate_products(text):
     """Separates multiple Dell products in the quote."""
     products = []
@@ -20,7 +39,7 @@ def separate_products(text):
     lines = text.split("\n")
     
     for line in lines:
-        # Detect new product section (Base Model Name)
+        # Detect a new product section (Base Model Name)
         if re.search(r"(Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
             if current_product:
                 products.append("\n".join(current_product))
@@ -38,12 +57,15 @@ def extract_specs(product_text):
     formatted_specs = []
     
     # Detect product title
-    product_title = "Unknown Product"
+    product_title = None
     for line in lines:
         match_title = re.search(r"(Precision|Latitude|OptiPlex|Workstation) .*", line, re.IGNORECASE)
         if match_title:
             product_title = match_title.group(0).strip()
             break
+
+    if not product_title:
+        return ""  # Skip empty products
 
     formatted_specs.append(f"### **{product_title} - Custom Configuration**\n")
 
@@ -57,15 +79,24 @@ def extract_specs(product_text):
     return "\n".join(formatted_specs)
 
 def main():
-    st.title("📄 Dell Quote PDF to ChannelOnline Formatter")
-    uploaded_file = st.file_uploader("Upload your Dell Quote PDF", type=["pdf"])
+    st.title("📄 Dell Quote Formatter (PDF & HTML)")
+
+    uploaded_file = st.file_uploader("Upload your Dell Quote (PDF or HTML)", type=["pdf", "html"])
 
     if uploaded_file is not None:
-        with open("temp.pdf", "wb") as f:
-            f.write(uploaded_file.read())
+        file_type = uploaded_file.type
+        extracted_text = ""
 
-        raw_text = extract_text_from_pdf("temp.pdf")
-        product_sections = separate_products(raw_text)
+        if file_type == "application/pdf":
+            with open("temp.pdf", "wb") as f:
+                f.write(uploaded_file.read())
+            extracted_text = extract_text_from_pdf("temp.pdf")
+
+        elif file_type == "text/html":
+            extracted_text = extract_text_from_html(uploaded_file.getvalue().decode("utf-8"))
+
+        # Process and format the extracted text
+        product_sections = separate_products(extracted_text)
 
         formatted_outputs = []
         for product_text in product_sections:
