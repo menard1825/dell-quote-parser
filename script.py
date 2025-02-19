@@ -34,20 +34,18 @@ def extract_product_details(text):
         products.append("\n".join(current_product))
     return products
 
-# Function to extract SKU-Quantity pairs while handling nested elements
-def extract_sku_quantity_pairs(soup):
-    sku_quantity_mapping = {}
-    for table in soup.find_all("table"):
-        rows = table.find_all("tr")
-        for row in rows:
-            cells = row.find_all("td")
-            if len(cells) >= 5:
-                description = cells[0].get_text(strip=True)
-                sku = cells[1].get_text(strip=True)
-                quantity = cells[4].get_text(strip=True)
-                if sku and quantity.isdigit():
-                    sku_quantity_mapping[description] = {"sku": sku, "quantity": int(quantity)}
-    return sku_quantity_mapping
+# Function to extract and clean product specifications
+def format_product_details(product_text):
+    lines = product_text.split("\n")
+    title = lines[0]
+    formatted_text = f"### **{title} - Custom Configuration**\n\n"
+    for line in lines[1:]:
+        if re.match(r"^[A-Za-z]+", line):  # Ensure it's a valid spec line
+            parts = line.split(" ", 1)
+            if len(parts) == 2:
+                key, value = parts
+                formatted_text += f"- **{key}**: {value}\n"
+    return formatted_text
 
 # Streamlit app
 def main():
@@ -65,22 +63,13 @@ def main():
                 f.write(uploaded_file.read())
             raw_text = extract_text_from_html("temp.html")
 
-        # Extract product details
+        # Extract and format product details
         product_sections = extract_product_details(raw_text)
-        formatted_outputs = []
-        for product_text in product_sections:
-            lines = product_text.split("\n")
-            title = lines[0]
-            formatted_text = f"### **{title} - Custom Configuration**\n\n"
-            for line in lines[1:]:
-                if ":" in line:
-                    key, value = map(str.strip, line.split(":", 1))
-                    formatted_text += f"- **{key}**: {value}\n"
-            formatted_outputs.append(formatted_text)
+        formatted_outputs = [format_product_details(product) for product in product_sections]
         
-        # Remove unnecessary sections (quote info, totals, sales rep details)
+        # Remove unnecessary sections (quote info, totals, terms, legal details)
         cleaned_output = "\n\n---\n\n".join(formatted_outputs)
-        cleaned_output = re.sub(r".*(Quote No.|Total|Customer #|Terms of Sale|Shipping).*", "", cleaned_output)
+        cleaned_output = re.sub(r".*(Quote No.|Total|Customer #|Terms of Sale|Shipping|Estimated Tax).*", "", cleaned_output)
         
         st.subheader("Formatted Output:")
         st.text_area("Copy and paste into ChannelOnline:", cleaned_output, height=600)
