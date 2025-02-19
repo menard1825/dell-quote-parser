@@ -19,7 +19,7 @@ def extract_text_from_html(html_path):
         soup = BeautifulSoup(file, "html.parser")
     return soup.get_text("\n", strip=True)
 
-# Function to extract only relevant product details
+# Function to extract relevant product details and format them properly
 def extract_product_details(text):
     products = []
     current_product = []
@@ -69,7 +69,14 @@ def main():
         product_sections = extract_product_details(raw_text)
         formatted_outputs = []
         for product_text in product_sections:
-            formatted_outputs.append(f"### **{product_text.split('\n')[0]} - Custom Configuration**\n" + "\n".join(product_text.split("\n")[1:]))
+            lines = product_text.split("\n")
+            title = lines[0]
+            formatted_text = f"### **{title} - Custom Configuration**\n\n"
+            for line in lines[1:]:
+                if ":" in line:
+                    key, value = map(str.strip, line.split(":", 1))
+                    formatted_text += f"- **{key}**: {value}\n"
+            formatted_outputs.append(formatted_text)
         
         # Remove unnecessary sections (quote info, totals, sales rep details)
         cleaned_output = "\n\n---\n\n".join(formatted_outputs)
