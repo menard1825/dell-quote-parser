@@ -1,26 +1,15 @@
 import pdfplumber
-import pytesseract
-import pdf2image
 import re
 import streamlit as st
 
 def extract_text_from_pdf(pdf_path):
-    """Extracts text from PDF, using OCR if necessary."""
+    """Extracts text from PDF."""
     text = ""
-
-    # Try normal text extraction first
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             extracted_text = page.extract_text()
             if extracted_text:
                 text += extracted_text + "\n"
-
-    # If no text was found, use OCR
-    if not text.strip():
-        images = pdf2image.convert_from_path(pdf_path)
-        for img in images:
-            text += pytesseract.image_to_string(img) + "\n"
-
     return text
 
 def separate_products(text):
@@ -31,46 +20,39 @@ def separate_products(text):
     lines = text.split("\n")
     
     for line in lines:
-        # Detect a new product section (Base or Model Name)
+        # Detect new product section (Base Model Name)
         if re.search(r"(Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
-            if current_product:  # Save the previous product before starting a new one
+            if current_product:
                 products.append("\n".join(current_product))
                 current_product = []
-        
         current_product.append(line)
     
     if current_product:
-        products.append("\n".join(current_product))  # Add the last product
+        products.append("\n".join(current_product))
     
     return products
 
 def extract_specs(product_text):
-    """Parses and formats each product's specs correctly."""
+    """Extracts and formats only descriptions and quantities."""
     lines = product_text.split("\n")
     formatted_specs = []
-
+    
     # Detect product title
-    product_title = None
+    product_title = "Unknown Product"
     for line in lines:
         match_title = re.search(r"(Precision|Latitude|OptiPlex|Workstation) .*", line, re.IGNORECASE)
         if match_title:
             product_title = match_title.group(0).strip()
-            break  # Stop after finding the first match
-
-    if not product_title:
-        return ""  # Skip empty products
+            break
 
     formatted_specs.append(f"### **{product_title} - Custom Configuration**\n")
 
     for line in lines:
-        # Match lines that contain description and quantity
-        match = re.match(r"(.+?)\s{2,}(.+?)\s{2,}(\d+)$", line)  # Only capture description and qty
+        # Extract only description and quantity
+        match = re.match(r"(.+?)\s{2,}(\d+)$", line)
         if match:
-            category, description, qty = match.groups()
-
-            # Exclude SKUs, pricing, and other unnecessary details
-            if not re.search(r"\d{2,}-\w{2,}", description) and "$" not in description:
-                formatted_specs.append(f"**{category.strip()}**: {description.strip()} *(Qty: {qty})*")
+            description, qty = match.groups()
+            formatted_specs.append(f"- **{description.strip()}** *(Qty: {qty})*")
 
     return "\n".join(formatted_specs)
 
