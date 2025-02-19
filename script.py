@@ -25,17 +25,23 @@ def format_input_data(raw_text):
 
 # Streamlit App
 def main():
-    st.title("📄 Dell Quote to ChannelOnline Formatter")
+    # Add Safari Micro logo (Replace 'safari_micro_logo.png' with actual URL or local path)
+    st.image("https://www.safarimicro.com/images/logo.png", width=250)
+    
+    # Custom header with branding
+    st.title("🚀 Safari Micro - Dell Quote Formatter")
+    st.markdown("Transform your Dell Quotes into a ChannelOnline-ready format with ease!")
+    
     raw_input = st.text_area("Paste your Dell Quote data here:", height=200)
     
     if st.button("Format Output"):
         if raw_input.strip():
             formatted_text = format_input_data(raw_input)
-            st.subheader("Formatted Output:")
+            st.subheader("📝 Formatted Output:")
             st.text_area("Copy and paste into ChannelOnline:", formatted_text, height=500)
-            st.download_button("Download Formatted Text", formatted_text, file_name="formatted_specs.txt")
+            st.download_button("📥 Download Formatted Text", formatted_text, file_name="formatted_specs.txt")
         else:
-            st.warning("Please paste the Dell Quote data before formatting.")
+            st.warning("⚠️ Please paste the Dell Quote data before formatting.")
 
 if __name__ == "__main__":
     main()
