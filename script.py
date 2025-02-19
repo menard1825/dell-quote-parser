@@ -32,7 +32,7 @@ def separate_products(text):
     
     for line in lines:
         # Detect a new product section (Base or Model Name)
-        if re.search(r"(Base|Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
+        if re.search(r"(Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
             if current_product:  # Save the previous product before starting a new one
                 products.append("\n".join(current_product))
                 current_product = []
@@ -44,18 +44,27 @@ def separate_products(text):
     
     return products
 
-def extract_specs(text):
-    """Parses extracted text to format each product's specs properly."""
-    specs = []
-    lines = text.split("\n")
+def extract_specs(product_text):
+    """Formats each product's specs properly."""
+    lines = product_text.split("\n")
+    formatted_specs = []
+
+    # Detect product title
+    product_title = "Unknown Product"
+    for line in lines:
+        if re.search(r"(Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
+            product_title = line.strip()
+            break  # Stop after finding the first match
+
+    formatted_specs.append(f"### **{product_title} - Custom Configuration**\n")
 
     for line in lines:
-        match = re.match(r"(.*?)\s{2,}(.*?)\s{2,}(\d+)", line)  # Adjusted regex for spec lines
+        match = re.match(r"(.*?)\s{2,}(.*?)\s{2,}(\d+)", line)  # Adjusted regex
         if match:
             category, description, qty = match.groups()
-            specs.append(f"- **{category.strip()}**: {description.strip()} *(Qty: {qty})*")
+            formatted_specs.append(f"**{category.strip()}**: {description.strip()} *(Qty: {qty})*")
 
-    return "\n".join(specs)
+    return "\n".join(formatted_specs)
 
 def main():
     st.title("📄 Dell Quote PDF to ChannelOnline Formatter")
@@ -71,9 +80,9 @@ def main():
         formatted_outputs = []
         for i, product_text in enumerate(product_sections):
             formatted_specs = extract_specs(product_text)
-            formatted_outputs.append(f"### **Product {i+1}**\n{formatted_specs}\n")
+            formatted_outputs.append(formatted_specs)
 
-        final_output = "\n---\n".join(formatted_outputs)
+        final_output = "\n\n---\n\n".join(formatted_outputs)
 
         st.subheader("Formatted Output:")
         st.text_area("Copy and paste into ChannelOnline:", final_output, height=600)
@@ -81,4 +90,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
