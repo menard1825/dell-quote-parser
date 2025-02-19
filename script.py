@@ -11,6 +11,10 @@ def extract_text_from_pdf(pdf_path):
             extracted_text = page.extract_text()
             if extracted_text:
                 text += extracted_text + "\n"
+    
+    if not text.strip():
+        return "⚠️ No text was extracted from the PDF. Check if it's a scanned document."
+    
     return text
 
 def extract_text_from_html(html_content):
@@ -18,16 +22,22 @@ def extract_text_from_html(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
     extracted_text = ""
 
+    # Debug: Print full HTML structure
+    print(soup.prettify())
+
     for row in soup.find_all("tr"):
         cols = row.find_all("td")
         if len(cols) >= 2:  # Ensure at least description + quantity
             description = cols[0].get_text(strip=True)
             qty = cols[-1].get_text(strip=True)  # Quantity is usually in the last column
-            
+
             # Ensure qty is a number and description is valid
             if description.lower() not in ["description", "qty", "quantity"] and qty.isdigit():
                 extracted_text += f"{description}  {qty}\n"
 
+    if not extracted_text.strip():
+        return "⚠️ No valid text extracted from HTML. Check the file structure."
+    
     return extracted_text
 
 def clean_text(text):
@@ -37,6 +47,10 @@ def clean_text(text):
         # Remove lines containing prices ($), SKU-like patterns (e.g., 210-BLLB), or dashes
         if not re.search(r"\$\d+|\d{2,}-\w{2,}|^-+$", line):
             cleaned_lines.append(line)
+    
+    if not cleaned_lines:
+        return "⚠️ No clean text was extracted. Check if important details were removed."
+    
     return "\n".join(cleaned_lines)
 
 def separate_products(text):
@@ -47,7 +61,6 @@ def separate_products(text):
     lines = text.split("\n")
     
     for line in lines:
-        # Detect a new product section (Base Model Name)
         if re.search(r"(Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
             if current_product:
                 products.append("\n".join(current_product))
@@ -56,6 +69,9 @@ def separate_products(text):
     
     if current_product:
         products.append("\n".join(current_product))
+
+    if not products:
+        return ["⚠️ No products detected. Check extracted text."]
     
     return products
 
@@ -64,7 +80,6 @@ def extract_specs(product_text):
     lines = product_text.split("\n")
     formatted_specs = []
 
-    # Detect product title
     product_title = None
     for line in lines:
         match_title = re.search(r"(Precision|Latitude|OptiPlex|Workstation) .*", line, re.IGNORECASE)
@@ -73,21 +88,23 @@ def extract_specs(product_text):
             break
 
     if not product_title:
-        return ""  # Skip empty products
+        return "⚠️ No product title found."
 
     formatted_specs.append(f"### **{product_title} - Custom Configuration**\n")
 
     for line in lines:
-        # Extract only description and quantity
         match = re.match(r"(.+?)\s{2,}(\d+)$", line)
         if match:
             description, qty = match.groups()
             formatted_specs.append(f"- **{description.strip()}** *(Qty: {qty})*")
 
+    if len(formatted_specs) == 1:
+        return "⚠️ No valid specs extracted."
+
     return "\n".join(formatted_specs)
 
 def main():
-    st.title("📄 Dell Quote Formatter (PDF & HTML)")
+    st.title("📄 Dell Quote Formatter (PDF & HTML) - Debug Mode")
 
     uploaded_file = st.file_uploader("Upload your Dell Quote (PDF or HTML)", type=["pdf", "html"])
 
@@ -103,8 +120,16 @@ def main():
         elif file_type == "text/html":
             extracted_text = extract_text_from_html(uploaded_file.getvalue().decode("utf-8"))
 
-        # Clean up text (remove prices and SKUs)
+        # Debug: Show raw extracted text
+        st.subheader("🛠 Raw Extracted Text (Before Cleaning)")
+        st.text_area("Raw Data:", extracted_text, height=300)
+
+        # Clean text (remove prices and SKUs)
         extracted_text = clean_text(extracted_text)
+
+        # Debug: Show cleaned text
+        st.subheader("🛠 Cleaned Text (Before Formatting)")
+        st.text_area("Cleaned Data:", extracted_text, height=300)
 
         # Process and format the extracted text
         product_sections = separate_products(extracted_text)
@@ -112,12 +137,11 @@ def main():
         formatted_outputs = []
         for product_text in product_sections:
             formatted_specs = extract_specs(product_text)
-            if formatted_specs:
-                formatted_outputs.append(formatted_specs)
+            formatted_outputs.append(formatted_specs)
 
         final_output = "\n\n---\n\n".join(formatted_outputs)
 
-        st.subheader("Formatted Output:")
+        st.subheader("📌 Formatted Output for ChannelOnline")
         st.text_area("Copy and paste into ChannelOnline:", final_output, height=600)
         st.download_button("Download Formatted Text", final_output, file_name="formatted_specs.txt")
 
