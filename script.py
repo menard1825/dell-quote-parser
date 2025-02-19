@@ -12,72 +12,56 @@ def extract_text_from_pdf(pdf_path):
             if extracted_text:
                 text += extracted_text + "\n"
 
-    if not text.strip():
-        return "⚠️ No text was extracted from the PDF. Check if it's a scanned document."
-
-    return text
+    return text if text.strip() else "⚠️ No text extracted from PDF."
 
 def extract_text_from_html(html_content):
-    """Extracts only descriptions and quantities from an HTML Dell Quote file."""
+    """Extracts only product details from a Dell Quote HTML file."""
     soup = BeautifulSoup(html_content, "html.parser")
     extracted_text = ""
 
-    # Find the correct table containing product descriptions and quantities
-    tables = soup.find_all("table")
+    # Find "Product Details" section
+    for section in soup.find_all(["table", "div"]):
+        if "Product Details" in section.get_text():
+            extracted_text = section.get_text(separator=" | ", strip=True)
+            break
 
-    for table in tables:
-        rows = table.find_all("tr")
-        for row in rows:
-            cols = row.find_all("td")
-            if len(cols) >= 2:  # Ensure at least a description and quantity exist
-                description = cols[0].get_text(strip=True)
-                qty = cols[-1].get_text(strip=True)  # Quantity is usually in the last column
-
-                # Ensure qty is a number and description is valid
-                if description.lower() not in ["description", "qty", "quantity"] and qty.isdigit():
-                    extracted_text += f"{description}  {qty}\n"
-
-    if not extracted_text.strip():
-        return "⚠️ No valid product details extracted from HTML. Check the file structure."
-
-    return extracted_text
+    return extracted_text if extracted_text.strip() else "⚠️ 'Product Details' section not found in HTML."
 
 def clean_text(text):
-    """Removes unnecessary details like pricing and SKUs."""
-    cleaned_lines = []
-    for line in text.split("\n"):
-        if not re.search(r"\$\d+|\d{2,}-\w{2,}|^-+$", line):  # Remove prices and SKU-like patterns
-            cleaned_lines.append(line)
-
-    if not cleaned_lines:
-        return "⚠️ No clean text was extracted. Check if important details were removed."
-
-    return "\n".join(cleaned_lines)
+    """Removes pricing, SKUs, and irrelevant details."""
+    ignore_keywords = [
+        "Subtotal", "Taxable Amount", "Estimated Tax", "Shipping", "Order",
+        "Sales Rep", "Quote", "Total", "Unit Price", "SKU", "Description",
+        "Customer", "Phone", "Email", "JOHN LANNON", "SAFARI MICRO"
+    ]
+    
+    lines = text.split("\n")
+    cleaned_lines = [line for line in lines if not any(ignore in line for ignore in ignore_keywords)]
+    
+    return "\n".join(cleaned_lines) if cleaned_lines else "⚠️ No valid product details extracted."
 
 def separate_products(text):
-    """Separates multiple products from the Dell quote."""
+    """Separates multiple products in the quote."""
     products = []
     current_product = []
 
+    product_keywords = ["Precision", "Latitude", "OptiPlex", "Workstation"]
     lines = text.split("\n")
-    
+
     for line in lines:
-        if re.search(r"(Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
+        if any(keyword in line for keyword in product_keywords):
             if current_product:
                 products.append("\n".join(current_product))
                 current_product = []
-        current_product.append(line)
-    
+        current_product.append(line.strip())
+
     if current_product:
         products.append("\n".join(current_product))
 
-    if not products:
-        return ["⚠️ No products detected. Check extracted text."]
-    
-    return products
+    return products if products else ["⚠️ No products detected."]
 
 def extract_specs(product_text):
-    """Formats product specifications into ChannelOnline format."""
+    """Formats product descriptions and quantities for ChannelOnline."""
     lines = product_text.split("\n")
     formatted_specs = []
 
@@ -99,10 +83,7 @@ def extract_specs(product_text):
             description, qty = match.groups()
             formatted_specs.append(f"- **{description.strip()}** *(Qty: {qty})*")
 
-    if len(formatted_specs) == 1:
-        return "⚠️ No valid specs extracted."
-
-    return "\n".join(formatted_specs)
+    return "\n".join(formatted_specs) if len(formatted_specs) > 1 else "⚠️ No valid specs extracted."
 
 def main():
     st.title("📄 Dell Quote Formatter (PDF & HTML)")
@@ -121,18 +102,14 @@ def main():
         elif file_type == "text/html":
             extracted_text = extract_text_from_html(uploaded_file.getvalue().decode("utf-8"))
 
-        # Debug: Show raw extracted text
         st.subheader("🛠 Raw Extracted Text (Before Cleaning)")
         st.text_area("Raw Data:", extracted_text, height=300)
 
-        # Clean text (remove prices and SKUs)
         extracted_text = clean_text(extracted_text)
 
-        # Debug: Show cleaned text
         st.subheader("🛠 Cleaned Text (Before Formatting)")
         st.text_area("Cleaned Data:", extracted_text, height=300)
 
-        # Process and format the extracted text
         product_sections = separate_products(extracted_text)
 
         formatted_outputs = []
