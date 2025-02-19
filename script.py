@@ -19,7 +19,7 @@ def extract_text_from_html(html_path):
         soup = BeautifulSoup(file, "html.parser")
     return soup.get_text("\n", strip=True)
 
-# Function to extract product details, SKU, and quantity
+# Function to extract only relevant product details
 def extract_product_details(text):
     products = []
     current_product = []
@@ -34,7 +34,7 @@ def extract_product_details(text):
         products.append("\n".join(current_product))
     return products
 
-# Function to extract SKU-Quantity pairs
+# Function to extract SKU-Quantity pairs while handling nested elements
 def extract_sku_quantity_pairs(soup):
     sku_quantity_mapping = {}
     for table in soup.find_all("table"):
@@ -70,12 +70,14 @@ def main():
         formatted_outputs = []
         for product_text in product_sections:
             formatted_outputs.append(f"### **{product_text.split('\n')[0]} - Custom Configuration**\n" + "\n".join(product_text.split("\n")[1:]))
-
-        final_output = "\n\n---\n\n".join(formatted_outputs)
+        
+        # Remove unnecessary sections (quote info, totals, sales rep details)
+        cleaned_output = "\n\n---\n\n".join(formatted_outputs)
+        cleaned_output = re.sub(r".*(Quote No.|Total|Customer #|Terms of Sale|Shipping).*", "", cleaned_output)
         
         st.subheader("Formatted Output:")
-        st.text_area("Copy and paste into ChannelOnline:", final_output, height=600)
-        st.download_button("Download Formatted Text", final_output, file_name="formatted_specs.txt")
+        st.text_area("Copy and paste into ChannelOnline:", cleaned_output, height=600)
+        st.download_button("Download Formatted Text", cleaned_output, file_name="formatted_specs.txt")
 
 if __name__ == "__main__":
     main()
