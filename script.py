@@ -25,8 +25,8 @@ def format_input_data(raw_text):
 
 # Streamlit App
 def main():
-    # Add Safari Micro logo (Replace 'safari_micro_logo.png' with actual URL or local path)
-    st.image("https://www.safarimicro.com/images/logo.png", width=250)
+    # Add Safari Micro logo with provided URL
+    st.image("https://safarimicro.com/wp-content/uploads/2022/01/SafariMicro-Color-with-Solid-Icon-Copy.png", width=250)
     
     # Custom header with branding
     st.title("🚀 Safari Micro - Dell Quote Formatter")
