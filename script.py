@@ -2,7 +2,7 @@ import streamlit as st
 import re
 
 def format_input_data(raw_text):
-    """Formats the pasted input data into a clean output for ChannelOnline."""
+    """Formats the pasted input data into a clean output for ChannelOnline with bullet points."""
     lines = raw_text.strip().split("\n")
     formatted_output = []
     
@@ -19,7 +19,7 @@ def format_input_data(raw_text):
                 formatted_output.append(f"### **{description} - Custom Configuration**\n")
                 first_line = False
             
-            formatted_output.append(f"- **{category}**: {description} (Qty: {qty})")
+            formatted_output.append(f"• **{category}**: {description} (Qty: {qty})")
     
     return "\n".join(formatted_output)
 
