@@ -51,13 +51,10 @@ def extract_specs(product_text):
 
     # Detect product title and quantity
     product_title = "Unknown Product"
-    quantity = 1
     for line in lines:
         if re.search(r"(Precision|Latitude|OptiPlex|Workstation)", line, re.IGNORECASE):
             product_title = line.strip()
-        match_qty = re.search(r"Qty[:]? (\d+)", line, re.IGNORECASE)
-        if match_qty:
-            quantity = match_qty.group(1)
+            break  # Stop after finding the first match
 
     formatted_specs.append(f"### **{product_title} - Custom Configuration**\n")
 
@@ -65,7 +62,10 @@ def extract_specs(product_text):
         match = re.match(r"(.*?)\s{2,}(.*?)\s{2,}(\d+)", line)  # Adjusted regex
         if match:
             category, description, qty = match.groups()
-            formatted_specs.append(f"**{category.strip()}**: {description.strip()} *(Qty: {qty})*")
+
+            # Remove SKU-like entries and pricing info
+            if not re.search(r"\d{2,}-\w{2,}", description) and "$" not in description:
+                formatted_specs.append(f"**{category.strip()}**: {description.strip()} *(Qty: {qty})*")
 
     return "\n".join(formatted_specs)
 
