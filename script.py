@@ -7,21 +7,39 @@ def format_input_data(raw_text):
     formatted_output = []
     
     current_product = []
+    current_product_name = None
+    
     for line in lines:
-        parts = line.split("\t")  # Tab-separated columns
-        if len(parts) >= 5:  # Ensure correct structure
-            category = parts[0].strip()
-            description = parts[1].strip()
-            qty = parts[4].strip()
+        parts = line.split("\t")  # Handle tab-separated format
+        
+        if len(parts) == 1 and not line.startswith(" ") and not line.startswith("\t"):
+            # This is likely the product title line (new format)
+            if current_product:
+                formatted_output.append("\n".join(current_product))
+                formatted_output.append("\n")
+            current_product_name = line.strip()
+            current_product = [f"### {current_product_name} CTO\n"]
+            continue
+        
+        if len(parts) >= 3:  # Adjusting to capture both formats
+            if len(parts) == 5:  # Old format (Module, Description, Product Code, SKU, Qty)
+                category = parts[0].strip()
+                description = parts[1].strip()
+                qty = parts[4].strip()
+            elif len(parts) == 3:  # New format (SKU, Description, Qty)
+                category = ""
+                description = parts[1].strip()
+                qty = parts[2].strip()
+            else:
+                continue  # Skip malformed lines
             
-            # Detecting new product based on 'Base' keyword
             if category.lower() == "base":
                 if current_product:
                     formatted_output.append("\n".join(current_product))
-                    formatted_output.append("\n")  # Remove unnecessary separator
+                    formatted_output.append("\n")
                 current_product = [f"### {description} CTO\n"]
             elif category.lower() != "module":  # Exclude unwanted module line
-                current_product.append(f"• {category}: {description} (Qty: {qty})")
+                current_product.append(f"• {category} {description} (Qty: {qty})" if category else f"• {description} (Qty: {qty})")
     
     if current_product:
         formatted_output.append("\n".join(current_product))
