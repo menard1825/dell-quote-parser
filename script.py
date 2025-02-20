@@ -31,22 +31,25 @@ def format_tdsynnex_cto(raw_text):
     """Formats input data from TDSynnex Dell CTO to a ChannelOnline-friendly format."""
     lines = raw_text.strip().split("\n")
     formatted_output = []
-    
     current_product = []
+    is_base_product = False
+    
     for line in lines:
-        parts = re.split(r'\s{2,}', line)  # TDSynnex uses multiple spaces as delimiters
-        if len(parts) >= 3:  # Ensure correct structure
+        parts = re.split(r'\s{2,}', line.strip())  # Split on multiple spaces
+        
+        if len(parts) == 1 and "Mobile Precision" in parts[0]:
+            # Base product detected
+            if current_product:
+                formatted_output.append("\n".join(current_product))
+                formatted_output.append("\n")
+            current_product = [f"### {parts[0]} CTO\n"]
+            is_base_product = True
+        elif len(parts) >= 3 and is_base_product:
+            # Extract SKU, description, and quantity
             sku = parts[0].strip()
-            description = parts[1].strip()
-            qty = parts[-1].strip()  # Quantity is usually the last field
-            
-            if "CTO" in description:
-                if current_product:
-                    formatted_output.append("\n".join(current_product))
-                    formatted_output.append("\n")
-                current_product = [f"### {description}\n"]
-            else:
-                current_product.append(f"• {sku}: {description} (Qty: {qty})")
+            description = " ".join(parts[1:-1]).strip()
+            qty = parts[-1].strip()
+            current_product.append(f"• {sku}: {description} (Qty: {qty})")
     
     if current_product:
         formatted_output.append("\n".join(current_product))
