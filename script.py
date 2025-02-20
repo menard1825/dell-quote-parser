@@ -5,22 +5,32 @@ def format_premier_cto(raw_text):
     """Formats the pasted input data into a clean, professional output for multiple products in ChannelOnline."""
     lines = raw_text.strip().split("\n")
     formatted_output = []
-    
     current_product = []
+    is_base_product = False
+    
     for line in lines:
-        parts = line.split("\t")  # Tab-separated columns
-        if len(parts) >= 5:  # Ensure correct structure
-            category = parts[0].strip()
-            description = parts[1].strip()
-            qty = parts[4].strip()
-            
-            if category.lower() == "base":
-                if current_product:
-                    formatted_output.append("\n".join(current_product))
-                    formatted_output.append("\n")
-                current_product = [f"### {description} CTO\n"]
-            elif category.lower() != "module":
-                current_product.append(f"• {category}: {description} (Qty: {qty})")
+        line = line.strip()
+        
+        # Detect base product name
+        if re.match(r'^Mobile Precision \d+', line):
+            if current_product:
+                formatted_output.append("\n".join(current_product))
+                formatted_output.append("\n")
+            current_product = [f"### {line} CTO\n"]
+            is_base_product = True
+        
+        # Ignore price-related lines
+        elif re.match(r'^(\$|Estimated delivery|Subtotal|Unit Price)', line):
+            continue
+        
+        # Extract component details
+        else:
+            parts = re.split(r'\s{2,}|\t+', line)
+            if len(parts) >= 3 and is_base_product:
+                description = parts[0].strip()
+                qty = parts[-1].strip()
+                if qty.isdigit():
+                    current_product.append(f"• {description} (Qty: {qty})")
     
     if current_product:
         formatted_output.append("\n".join(current_product))
@@ -35,7 +45,7 @@ def format_tdsynnex_cto(raw_text):
     is_base_product = False
     
     for line in lines:
-        parts = re.split(r'\s{2,}|\t+', line.strip())  # Split on multiple spaces or tabs
+        parts = re.split(r'\s{2,}|\t+', line.strip())
         
         if len(parts) >= 3 and ("CTO" in parts[1] or "Mobile Precision" in parts[1]):
             # Base product detected
