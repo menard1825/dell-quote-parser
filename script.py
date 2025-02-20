@@ -20,14 +20,14 @@ def format_premier_cto(raw_text):
             is_base_product = True
         
         # Ignore price-related lines
-        elif re.search(r'^(\$|Estimated delivery|Subtotal|Unit Price|Total)', line, re.IGNORECASE):
+        elif re.search(r'^(\$|Estimated delivery|Subtotal|Unit Price|Total|Description|SKU)', line, re.IGNORECASE):
             continue
         
         # Extract component details
         else:
             parts = re.split(r'\s{2,}|\t+', line)
             if len(parts) >= 2 and is_base_product:
-                description = parts[0].strip()
+                description = " ".join(parts[:-1]).strip()
                 qty = parts[-1].strip()
                 if qty.isdigit():
                     current_product.append(f"• {description} (Qty: {qty})")
