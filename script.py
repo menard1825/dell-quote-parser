@@ -35,16 +35,16 @@ def format_tdsynnex_cto(raw_text):
     is_base_product = False
     
     for line in lines:
-        parts = re.split(r'\s{2,}', line.strip())  # Split on multiple spaces
+        parts = re.split(r'\s{2,}|\t+', line.strip())  # Split on multiple spaces or tabs
         
-        if len(parts) >= 2 and "CTO" in parts[1]:
+        if len(parts) >= 3 and ("CTO" in parts[1] or "Mobile Precision" in parts[1]):
             # Base product detected
             if current_product:
                 formatted_output.append("\n".join(current_product))
                 formatted_output.append("\n")
             current_product = [f"### {parts[0]} {parts[1]}\n"]
             is_base_product = True
-        elif len(parts) >= 2 and is_base_product:
+        elif len(parts) >= 3 and is_base_product:
             # Extract SKU, description, and quantity
             sku = parts[0].strip()
             description = " ".join(parts[1:-1]).strip()
