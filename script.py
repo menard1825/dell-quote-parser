@@ -2,13 +2,11 @@ import streamlit as st
 import re
 
 def format_input_data(raw_text):
-    """Formats the pasted input data into a clean, professional output for ChannelOnline with improved spacing."""
+    """Formats the pasted input data into a clean, professional output for multiple products in ChannelOnline."""
     lines = raw_text.strip().split("\n")
     formatted_output = []
     
-    # Extract and format data
-    first_line = True
-    base_name = ""
+    current_product = []
     for line in lines:
         parts = line.split("\t")  # Tab-separated columns
         if len(parts) >= 5:  # Ensure correct structure
@@ -16,12 +14,17 @@ def format_input_data(raw_text):
             description = parts[1].strip()
             qty = parts[4].strip()
             
-            if first_line:
-                base_name = description
-                formatted_output.append(f"### {base_name} CTO\n\n")
-                first_line = False
+            # Detecting new product based on 'Base' keyword
+            if category.lower() == "base":
+                if current_product:
+                    formatted_output.append("\n".join(current_product))
+                    formatted_output.append("\n---\n")
+                current_product = [f"### {description} CTO\n"]
             
-            formatted_output.append(f"• {category}:  {description}  \n   **Quantity:** {qty}\n")
+            current_product.append(f"• {category}:  {description}  \n   **Quantity:** {qty}\n")
+    
+    if current_product:
+        formatted_output.append("\n".join(current_product))
     
     return "\n".join(formatted_output)
 
@@ -34,7 +37,7 @@ def main():
     st.title("🚀 Safari Micro - Dell Quote Formatter")
     st.markdown("Transform your Dell Quotes into a ChannelOnline-ready format with ease!")
     
-    raw_input = st.text_area("Paste your Dell Quote data here:", height=200)
+    raw_input = st.text_area("Paste your Dell Quote data here:", height=300)
     
     if st.button("Format Output"):
         if raw_input.strip():
