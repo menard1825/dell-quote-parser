@@ -12,8 +12,8 @@ def format_input_data(raw_text):
     for line in lines:
         parts = line.split("\t")  # Handle tab-separated format
         
-        if len(parts) == 1 and not line.startswith(" ") and not line.startswith("\t"):
-            # This is likely the product title line (new format)
+        if len(parts) == 1 and not line.startswith(" ") and not line.startswith("\t") and not parts[0].isdigit():
+            # This is likely the product title line (new format) if it's not a number
             if current_product:
                 formatted_output.append("\n".join(current_product))
                 formatted_output.append("\n")
@@ -33,13 +33,15 @@ def format_input_data(raw_text):
             else:
                 continue  # Skip malformed lines
             
-            if category.lower() == "base":
+            if category.lower() == "base" or category.lower() == "module":
                 if current_product:
                     formatted_output.append("\n".join(current_product))
                     formatted_output.append("\n")
                 current_product = [f"### {description} CTO\n"]
-            elif category.lower() != "module":  # Exclude unwanted module line
-                current_product.append(f"• {category} {description} (Qty: {qty})" if category else f"• {description} (Qty: {qty})")
+            elif category and category.lower() != "module":  # Exclude unwanted module line
+                current_product.append(f"• {category}: {description} (Qty: {qty})")
+            else:
+                current_product.append(f"• {description} (Qty: {qty})")
     
     if current_product:
         formatted_output.append("\n".join(current_product))
