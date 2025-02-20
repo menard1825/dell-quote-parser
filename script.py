@@ -20,8 +20,8 @@ def format_input_data(raw_text):
                     formatted_output.append("\n".join(current_product))
                     formatted_output.append("\n")  # Remove unnecessary separator
                 current_product = [f"### {description} CTO\n"]
-            
-            current_product.append(f"• {category}: {description} (Qty: {qty})")
+            elif category.lower() != "module":  # Exclude unwanted module line
+                current_product.append(f"• {category}: {description} (Qty: {qty})")
     
     if current_product:
         formatted_output.append("\n".join(current_product))
