@@ -42,14 +42,13 @@ def format_tdsynnex_cto(raw_text):
             if current_product:
                 formatted_output.append("\n".join(current_product))
                 formatted_output.append("\n")
-            current_product = [f"### {parts[0]} {parts[1]}\n"]
+            current_product = [f"### {parts[1]}\n"]  # Removed SKU
             is_base_product = True
         elif len(parts) >= 3 and is_base_product:
-            # Extract SKU, description, and quantity
-            sku = parts[0].strip()
+            # Extract description and quantity only
             description = " ".join(parts[1:-1]).strip()
             qty = parts[-1].strip()
-            current_product.append(f"• {sku}: {description} (Qty: {qty})")
+            current_product.append(f"• {description} (Qty: {qty})")
     
     if current_product:
         formatted_output.append("\n".join(current_product))
