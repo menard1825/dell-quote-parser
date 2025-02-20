@@ -37,9 +37,9 @@ def main():
     st.title("🚀 Safari Micro - Dell Quote Formatter")
     st.markdown("Transform your Dell Quotes into a ChannelOnline-ready format with ease!")
     
-    # Add instructional image
-    st.image("https://safarimicro.com/wp-content/uploads/2022/01/Screenshot-Example.jpg", caption="Select and copy the highlighted text in the image above, then paste it below.", use_column_width=True)
-    st.image("https://safarimicro.com/wp-content/uploads/2022/01/Screenshot-Alternative.jpg", caption="Alternative view for selecting the correct text.", use_column_width=True)
+    # Add instructional images
+    st.image("https://safarimicro.com/wp-content/uploads/2022/01/Screenshot-Example.jpg", caption="Select and copy the highlighted text in the image above, then paste it below.", use_container_width=True)
+    st.image("https://safarimicro.com/wp-content/uploads/2022/01/Screenshot-Alternative.jpg", caption="Alternative view for selecting the correct text.", use_container_width=True)
     
     raw_input = st.text_area("Paste your Dell Quote data here:", height=300)
     
