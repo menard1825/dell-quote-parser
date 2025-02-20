@@ -26,6 +26,10 @@ def format_dell_premier_data(raw_text):
                 category = parts[0].strip()
                 description = parts[1].strip()
                 qty = parts[4].strip()
+            elif len(parts) == 3:  # Alternate format (Description, SKU, Qty)
+                description = parts[0].strip()
+                qty = parts[2].strip()
+                category = ""
             else:
                 continue  # Skip malformed lines
             
@@ -66,7 +70,8 @@ def format_td_synnex_data(raw_text):
         if len(parts) == 3:  # TD Synnex format (SKU, Description, Qty)
             description = parts[1].strip()
             qty = parts[2].strip()
-            current_product.append(f"• {description} (Qty: {qty})")
+            if "Qty:" not in description:
+                current_product.append(f"• {description} (Qty: {qty})")
     
     if current_product:
         formatted_output.append("\n".join(current_product))
