@@ -72,63 +72,69 @@ def format_email_cto(raw_text):
     ChannelOnline-friendly format. This version is designed to handle
     pasted text where components are on multiple lines.
     """
-    # Step 1: Clean up the input text by removing blank lines and extra whitespace.
-    lines = [line.strip() for line in raw_text.strip().split('\n') if line.strip()]
+    # Step 1: Clean up the input text using splitlines() for better line ending handling.
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
     
-    # Step 2: Define a regular expression to identify SKU codes.
+    # Step 2: Define regex for SKU and filter out common table headers.
     sku_regex = re.compile(r'^[A-Z0-9]{3}-[A-Z0-9]{4,}$')
-    
-    # Step 3: Filter out the table headers that might be copied from the email.
     headers = ["description", "sku", "unit price", "quantity"]
     lines = [line for line in lines if line.lower() not in headers]
 
-    # Step 4: Process the cleaned lines to find and group components.
-    components = []
-    current_description_lines = []
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        
-        # A component is identified by a sequence of: SKU, then '-', then a quantity.
-        # Check if the current line is a SKU and if the next two lines exist and match the pattern.
-        if sku_regex.match(line) and i + 2 < len(lines) and lines[i+1] == '-':
-            try:
-                # The line after the hyphen should be the quantity.
-                qty = int(lines[i+2])
-                
-                # If the pattern is confirmed, group the collected description lines.
-                description = " ".join(current_description_lines).strip()
-                components.append({'description': description, 'sku': line, 'qty': qty})
-                
-                # Reset for the next component and skip the index past this component's block.
-                current_description_lines = []
-                i += 3 
-                continue
-            except ValueError:
-                # This handles cases where the line after the hyphen is not a number.
-                # We treat it as part of a description instead.
-                pass
+    # Step 3: Find the indices of all lines that look like SKUs. This is our anchor.
+    sku_indices = [i for i, line in enumerate(lines) if sku_regex.match(line)]
 
-        # If the line is not part of a valid component block, add it to the current description.
-        current_description_lines.append(line)
-        i += 1
+    if not sku_indices:
+        return "" # Return blank if no SKUs found, avoids showing an error for empty input.
+
+    # Step 4: Group lines into components based on SKU locations.
+    components = []
+    start_index = 0
+    for sku_index in sku_indices:
+        # A component block is SKU, then '-', then Qty. Check if this block is valid.
+        if sku_index + 2 < len(lines) and lines[sku_index + 1].strip() == '-':
+            try:
+                qty = int(lines[sku_index + 2])
+                
+                # Description is all non-component lines since the last component.
+                description_lines = lines[start_index:sku_index]
+                description = " ".join(description_lines).strip()
+                
+                # A component with no description is usually not a real item.
+                if not description:
+                    start_index = sku_index + 3
+                    continue
+
+                components.append({
+                    'description': description,
+                    'sku': lines[sku_index],
+                    'qty': qty
+                })
+                
+                # The next description will start after this component block.
+                start_index = sku_index + 3
+            except (ValueError, IndexError):
+                # If block is malformed (e.g., qty isn't a number), skip it.
+                continue
 
     # Step 5: Format the structured components into the final output string.
     if not components:
-        return "" # Return blank if no components were successfully parsed.
+        return "" # Return blank if parsing fails to produce components.
 
     formatted_output = []
     current_product = []
 
+    # The first component found is the base product. Subsequent components with "CTO"
+    # in their description will start a new product block.
     for comp in components:
-        # If "CTO" is in the description, start a new product section.
-        if "CTO" in comp['description']:
+        if not current_product or "CTO" in comp['description']:
             if current_product:
                 formatted_output.append("\n".join(current_product))
                 formatted_output.append("\n")
+            
+            # Start the new product block with the description as the title.
             current_product = [f"### {comp['description']}\n"]
         else:
-            # Otherwise, add the component as a bullet point to the current product.
+            # Otherwise, add it as a component to the current product.
             current_product.append(f"• {comp['description']} (Qty: {comp['qty']})")
 
     # Append the last product being built.
