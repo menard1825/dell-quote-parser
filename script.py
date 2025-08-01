@@ -68,78 +68,50 @@ def format_tdsynnex_cto(raw_text):
 
 def format_email_cto(raw_text):
     """
-    Formats input data from a copied Dell Email Quote to a 
-    ChannelOnline-friendly format. This version is designed to handle
-    pasted text where components are on multiple lines.
+    Formats tab-separated text copied from the 'View in Browser' 
+    page of a Dell email quote.
     """
-    # Step 1: Clean up the input text using splitlines() for better line ending handling.
+    # Clean the input by splitting into lines and removing any that are empty.
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
     
-    # Step 2: Define regex for SKU and filter out common table headers.
+    formatted_output = []
+    current_product_components = []
+    
+    # Regex to confirm a valid SKU format.
     sku_regex = re.compile(r'^[A-Z0-9]{3}-[A-Z0-9]{4,}$')
-    headers = ["description", "sku", "unit price", "quantity"]
-    lines = [line for line in lines if line.lower() not in headers]
 
-    # Step 3: Find the indices of all lines that look like SKUs. This is our anchor.
-    sku_indices = [i for i, line in enumerate(lines) if sku_regex.match(line)]
+    for line in lines:
+        # Split each line by tab characters.
+        parts = re.split(r'\t+', line)
+        
+        # A valid component line from the browser view has 5 parts, 
+        # with the second part being a SKU.
+        # e.g., ['Description', 'SKU', '-', 'Quantity', '-']
+        if len(parts) == 5 and sku_regex.match(parts[1].strip()):
+            desc = parts[0].strip()
+            qty = parts[3].strip()
 
-    if not sku_indices:
-        return "" # Return blank if no SKUs found, avoids showing an error for empty input.
-
-    # Step 4: Group lines into components based on SKU locations.
-    components = []
-    start_index = 0
-    for sku_index in sku_indices:
-        # A component block is SKU, then '-', then Qty. Check if this block is valid.
-        if sku_index + 2 < len(lines) and lines[sku_index + 1].strip() == '-':
-            try:
-                qty = int(lines[sku_index + 2])
-                
-                # Description is all non-component lines since the last component.
-                description_lines = lines[start_index:sku_index]
-                description = " ".join(description_lines).strip()
-                
-                # A component with no description is usually not a real item.
-                if not description:
-                    start_index = sku_index + 3
-                    continue
-
-                components.append({
-                    'description': description,
-                    'sku': lines[sku_index],
-                    'qty': qty
-                })
-                
-                # The next description will start after this component block.
-                start_index = sku_index + 3
-            except (ValueError, IndexError):
-                # If block is malformed (e.g., qty isn't a number), skip it.
+            # Skip if the quantity part is not a number.
+            if not qty.isdigit():
                 continue
 
-    # Step 5: Format the structured components into the final output string.
-    if not components:
-        return "" # Return blank if parsing fails to produce components.
+            # A line with "CTO", "BASE", or "Headset" indicates the start of a new product.
+            # This handles both configurable and standalone items.
+            if "CTO" in desc or "BASE" in desc or "Headset" in desc:
+                # If we were already building a product, add it to the output first.
+                if current_product_components:
+                    formatted_output.append("\n".join(current_product_components))
+                    formatted_output.append("\n")
+                # Start the new product block.
+                current_product_components = [f"### {desc}\n"]
+            else: 
+                # This is a component of the product we are currently building.
+                if current_product_components:
+                    current_product_components.append(f"• {desc} (Qty: {qty})")
 
-    formatted_output = []
-    current_product = []
-
-    # The first component found is the base product. Subsequent components with "CTO"
-    # in their description will start a new product block.
-    for comp in components:
-        if not current_product or "CTO" in comp['description']:
-            if current_product:
-                formatted_output.append("\n".join(current_product))
-                formatted_output.append("\n")
-            
-            # Start the new product block with the description as the title.
-            current_product = [f"### {comp['description']}\n"]
-        else:
-            # Otherwise, add it as a component to the current product.
-            current_product.append(f"• {comp['description']} (Qty: {comp['qty']})")
-
-    # Append the last product being built.
-    if current_product:
-        formatted_output.append("\n".join(current_product))
+    # After the loop, append the last product that was being built.
+    if current_product_components:
+        formatted_output.append("\n".join(current_product_components))
         
     return "\n".join(formatted_output)
 
