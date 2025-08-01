@@ -69,41 +69,74 @@ def format_tdsynnex_cto(raw_text):
 def format_email_cto(raw_text):
     """
     Formats input data from a copied Dell Email Quote to a 
-    ChannelOnline-friendly format. This is designed to handle
-    the messy, space-separated format from emails.
+    ChannelOnline-friendly format. This version is designed to handle
+    pasted text where components are on multiple lines.
     """
-    lines = raw_text.strip().split("\n")
+    # Step 1: Clean up the input text by removing blank lines and extra whitespace.
+    lines = [line.strip() for line in raw_text.strip().split('\n') if line.strip()]
+    
+    # Step 2: Define a regular expression to identify SKU codes.
+    sku_regex = re.compile(r'^[A-Z0-9]{3}-[A-Z0-9]{4,}$')
+    
+    # Step 3: Filter out the table headers that might be copied from the email.
+    headers = ["description", "sku", "unit price", "quantity"]
+    lines = [line for line in lines if line.lower() not in headers]
+
+    # Step 4: Process the cleaned lines to find and group components.
+    components = []
+    current_description_lines = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        
+        # A component is identified by a sequence of: SKU, then '-', then a quantity.
+        # Check if the current line is a SKU and if the next two lines exist and match the pattern.
+        if sku_regex.match(line) and i + 2 < len(lines) and lines[i+1] == '-':
+            try:
+                # The line after the hyphen should be the quantity.
+                qty = int(lines[i+2])
+                
+                # If the pattern is confirmed, group the collected description lines.
+                description = " ".join(current_description_lines).strip()
+                components.append({'description': description, 'sku': line, 'qty': qty})
+                
+                # Reset for the next component and skip the index past this component's block.
+                current_description_lines = []
+                i += 3 
+                continue
+            except ValueError:
+                # This handles cases where the line after the hyphen is not a number.
+                # We treat it as part of a description instead.
+                pass
+
+        # If the line is not part of a valid component block, add it to the current description.
+        current_description_lines.append(line)
+        i += 1
+
+    # Step 5: Format the structured components into the final output string.
+    if not components:
+        return "" # Return blank if no components were successfully parsed.
+
     formatted_output = []
     current_product = []
 
-    # This regex is the key part. It looks for lines that have:
-    # 1. A description (anything at the start).
-    # 2. A SKU (like '210-BGPB').
-    # 3. A hyphen separator.
-    # 4. A quantity (one or more digits at the end of the line).
-    line_regex = re.compile(r'^(.*?)\s+([A-Z0-9]{3}-[A-Z0-9]{4,})\s+-\s+(\d+)$')
+    for comp in components:
+        # If "CTO" is in the description, start a new product section.
+        if "CTO" in comp['description']:
+            if current_product:
+                formatted_output.append("\n".join(current_product))
+                formatted_output.append("\n")
+            current_product = [f"### {comp['description']}\n"]
+        else:
+            # Otherwise, add the component as a bullet point to the current product.
+            current_product.append(f"• {comp['description']} (Qty: {comp['qty']})")
 
-    for line in lines:
-        match = line_regex.match(line.strip())
-        if match:
-            # If a line matches the pattern, extract the parts
-            description, sku, qty = match.groups()
-            description = description.strip()
-
-            # If "CTO" is in the description, treat it as a new product
-            if "CTO" in description:
-                if current_product:
-                    formatted_output.append("\n".join(current_product))
-                    formatted_output.append("\n")
-                current_product = [f"### {description}\n"]
-            else:
-                # Otherwise, it's a component of the current product
-                current_product.append(f"• {description} (Qty: {qty})")
-
+    # Append the last product being built.
     if current_product:
         formatted_output.append("\n".join(current_product))
-
+        
     return "\n".join(formatted_output)
+
 
 def main():
     """
@@ -139,4 +172,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
