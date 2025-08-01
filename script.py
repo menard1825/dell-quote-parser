@@ -69,51 +69,68 @@ def format_tdsynnex_cto(raw_text):
 def format_email_cto(raw_text):
     """
     Formats tab-separated text copied from the 'View in Browser' 
-    page of a Dell email quote.
+    page of a Dell email quote. This version is designed to be more
+    robust by finding and parsing distinct product sections based on
+    their headers.
     """
-    # Clean the input by splitting into lines and removing any that are empty.
+    # Normalize line endings and remove any empty or whitespace-only lines.
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
-    
-    formatted_output = []
-    current_product_components = []
-    
-    # Regex to confirm a valid SKU format.
-    sku_regex = re.compile(r'^[A-Z0-9]{3}-[A-Z0-9]{4,}$')
 
-    for line in lines:
-        # Split each line by tab characters.
-        parts = re.split(r'\t+', line)
+    # Step 1: Find the start of all detailed component sections.
+    # These sections are reliably marked by a header row containing "Description", "SKU", and "Quantity".
+    section_starts = []
+    for i, line in enumerate(lines):
+        # Use 'in' for flexibility, as the exact spacing/tabs can vary.
+        if "Description" in line and "SKU" in line and "Quantity" in line:
+            # We add 1 because the actual data starts on the line *after* the header.
+            section_starts.append(i + 1)
+
+    # If no sections are found, the input is not in the expected format.
+    # Return a helpful message to the user.
+    if not section_starts:
+        return "Could not find any product detail sections. Please ensure you are copying the entire quote, including the 'Description' and 'SKU' table headers."
+
+    all_formatted_products = []
+    
+    # Step 2: Process each identified section individually.
+    for i in range(len(section_starts)):
+        start_index = section_starts[i]
         
-        # A valid component line from the browser view has 5 parts, 
-        # with the second part being a SKU.
-        # e.g., ['Description', 'SKU', '-', 'Quantity', '-']
-        if len(parts) == 5 and sku_regex.match(parts[1].strip()):
-            desc = parts[0].strip()
-            qty = parts[3].strip()
+        # The section ends where the next section begins, or at the end of the text if it's the last section.
+        end_index = section_starts[i+1] -1 if i + 1 < len(section_starts) else len(lines)
+        
+        section_lines = lines[start_index:end_index]
 
-            # Skip if the quantity part is not a number.
-            if not qty.isdigit():
-                continue
+        current_product_components = []
+        sku_regex = re.compile(r'^[A-Z0-9]{3}-[A-Z0-9]{4,}$')
 
-            # A line with "CTO", "BASE", or "Headset" indicates the start of a new product.
-            # This handles both configurable and standalone items.
-            if "CTO" in desc or "BASE" in desc or "Headset" in desc:
-                # If we were already building a product, add it to the output first.
-                if current_product_components:
-                    formatted_output.append("\n".join(current_product_components))
-                    formatted_output.append("\n")
-                # Start the new product block.
-                current_product_components = [f"### {desc}\n"]
-            else: 
-                # This is a component of the product we are currently building.
-                if current_product_components:
+        # Step 3: Parse each line within the section.
+        for line in section_lines:
+            # Split the line by one or more tabs to create columns.
+            parts = re.split(r'\t+', line)
+            
+            # A valid component line must have a SKU in the second position.
+            if len(parts) >= 2 and sku_regex.match(parts[1].strip()):
+                desc = parts[0].strip()
+                
+                # The quantity is usually in the 4th position. Default to '1' if not found.
+                qty = "1"
+                if len(parts) >= 4 and parts[3].strip().isdigit():
+                    qty = parts[3].strip()
+
+                # The first component found in a section is the main product title.
+                if not current_product_components:
+                    current_product_components.append(f"### {desc}\n")
+                else:
+                    # All subsequent components are formatted as list items.
                     current_product_components.append(f"• {desc} (Qty: {qty})")
 
-    # After the loop, append the last product that was being built.
-    if current_product_components:
-        formatted_output.append("\n".join(current_product_components))
-        
-    return "\n".join(formatted_output)
+        # Once a section is fully parsed, add the formatted block to our list.
+        if current_product_components:
+            all_formatted_products.append("\n".join(current_product_components))
+
+    # Step 4: Join all the formatted product blocks with a double newline for spacing.
+    return "\n\n".join(all_formatted_products)
 
 
 def main():
