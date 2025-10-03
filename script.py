@@ -72,9 +72,7 @@ def format_tdsynnex_cto(raw_text):
 def format_email_cto(raw_text):
     """
     Formats tab-separated text copied from the 'View in Browser' 
-    page of a Dell email quote. This version is designed to be more
-    robust by finding and parsing distinct product sections based on
-    their headers.
+    page of a Dell email quote.
     """
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
@@ -84,7 +82,7 @@ def format_email_cto(raw_text):
             section_starts.append(i + 1)
 
     if not section_starts:
-        return "Could not find any product detail sections. Please ensure you are copying the entire quote, including the 'Description' and 'SKU' table headers."
+        return "Could not find any product detail sections."
 
     all_formatted_products = []
     
@@ -120,6 +118,48 @@ def format_email_cto(raw_text):
 
     return "\n\n".join(all_formatted_products)
 
+def format_generic_cto(raw_text):
+    """
+    Formats a generic, unstructured Dell CTO quote.
+    """
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    
+    # Find the base product name (usually the first line)
+    product_name = lines[0] if lines else "Dell CTO Product"
+
+    # Find the base quantity
+    base_qty = 0
+    for line in lines:
+        # Look for a number that's likely the quantity (e.g., "50")
+        match = re.search(r'-(\d+)-', line)
+        if match:
+            qty = int(match.group(1))
+            if qty > base_qty:
+                base_qty = qty
+
+    if base_qty == 0:
+        base_qty = 1
+
+    formatted_output = [f"### {product_name}\n"]
+    
+    # Regex to find component lines
+    component_regex = re.compile(r'(.+?)(\w{3}-\w{4,}-\d+-\d+)')
+
+    for line in lines:
+        match = component_regex.match(line)
+        if match:
+            description = match.group(1).strip()
+            sku_part = match.group(2)
+            
+            # Extract quantity from the SKU part
+            qty_match = re.search(r'-(\d+)$', sku_part)
+            qty = int(qty_match.group(1)) if qty_match else 1
+            
+            display_qty = 1 if qty == base_qty else qty
+            formatted_output.append(f"• {description} (Qty: {display_qty})")
+
+    return "\n".join(formatted_output)
+
 def main():
     """
     Main function to run the Streamlit application.
@@ -130,7 +170,7 @@ def main():
     
     format_type = st.radio(
         "Select Dell CTO Input Type:", 
-        ["Dell Premier CTO", "TDSynnex Dell CTO", "Dell Email CTO"]
+        ["Dell Premier CTO", "TDSynnex Dell CTO", "Dell Email CTO", "Generic CTO"]
     )
     
     raw_input = st.text_area("Paste your Dell Quote data here:", height=300)
@@ -141,8 +181,10 @@ def main():
                 formatted_text = format_premier_cto(raw_input)
             elif format_type == "TDSynnex Dell CTO":
                 formatted_text = format_tdsynnex_cto(raw_input)
-            else:
+            elif format_type == "Dell Email CTO":
                 formatted_text = format_email_cto(raw_input)
+            else:
+                formatted_text = format_generic_cto(raw_input)
                 
             st.subheader("📝 Formatted Output:")
             st.text_area("Copy and paste into ChannelOnline:", formatted_text, height=500)
