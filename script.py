@@ -9,26 +9,26 @@ def format_premier_cto(raw_text):
     lines = raw_text.strip().split("\n")
     formatted_output = []
     current_product = []
+    base_qty = 1
 
     for line in lines:
-        # Expects tab-separated columns
         parts = line.split("\t")
-        if len(parts) >= 5:  # Ensure the line has the expected structure
+        if len(parts) >= 5:
             category = parts[0].strip()
             description = parts[1].strip()
-            qty = parts[4].strip()
-            
-            # "Base" indicates the start of a new product configuration
+            qty_str = parts[4].strip()
+            qty = int(qty_str) if qty_str.isdigit() else 1
+
             if category.lower() == "base":
                 if current_product:
                     formatted_output.append("\n".join(current_product))
-                    formatted_output.append("\n") # Add a space between products
+                    formatted_output.append("\n")
+                base_qty = qty
                 current_product = [f"### {description} CTO\n"]
-            # "Module" lines are usually headers and can be ignored
             elif category.lower() != "module":
-                current_product.append(f"• {category}: {description} (Qty: {qty})")
+                display_qty = 1 if qty == base_qty else qty
+                current_product.append(f"• {category}: {description} (Qty: {display_qty})")
     
-    # Append the last product in the list
     if current_product:
         formatted_output.append("\n".join(current_product))
     
@@ -43,23 +43,26 @@ def format_tdsynnex_cto(raw_text):
     formatted_output = []
     current_product = []
     is_base_product = False
+    base_qty = 1
     
     for line in lines:
-        # Split on multiple spaces or tabs to handle less structured input
         parts = re.split(r'\s{2,}|\t+', line.strip())
         
-        # Detect the base product line
         if len(parts) >= 3 and ("CTO" in parts[1] or "Mobile Precision" in parts[1]):
             if current_product:
                 formatted_output.append("\n".join(current_product))
                 formatted_output.append("\n")
+            
+            qty_str = parts[-1].strip()
+            base_qty = int(qty_str) if qty_str.isdigit() else 1
             current_product = [f"### {parts[1]}\n"]
             is_base_product = True
-        # Process component lines that belong to the base product
         elif len(parts) >= 3 and is_base_product:
             description = " ".join(parts[1:-1]).strip()
-            qty = parts[-1].strip()
-            current_product.append(f"• {description} (Qty: {qty})")
+            qty_str = parts[-1].strip()
+            qty = int(qty_str) if qty_str.isdigit() else 1
+            display_qty = 1 if qty == base_qty else qty
+            current_product.append(f"• {description} (Qty: {display_qty})")
     
     if current_product:
         formatted_output.append("\n".join(current_product))
@@ -73,65 +76,49 @@ def format_email_cto(raw_text):
     robust by finding and parsing distinct product sections based on
     their headers.
     """
-    # Normalize line endings and remove any empty or whitespace-only lines.
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
-    # Step 1: Find the start of all detailed component sections.
-    # These sections are reliably marked by a header row containing "Description", "SKU", and "Quantity".
     section_starts = []
     for i, line in enumerate(lines):
-        # Use 'in' for flexibility, as the exact spacing/tabs can vary.
         if "Description" in line and "SKU" in line and "Quantity" in line:
-            # We add 1 because the actual data starts on the line *after* the header.
             section_starts.append(i + 1)
 
-    # If no sections are found, the input is not in the expected format.
-    # Return a helpful message to the user.
     if not section_starts:
         return "Could not find any product detail sections. Please ensure you are copying the entire quote, including the 'Description' and 'SKU' table headers."
 
     all_formatted_products = []
     
-    # Step 2: Process each identified section individually.
     for i in range(len(section_starts)):
         start_index = section_starts[i]
-        
-        # The section ends where the next section begins, or at the end of the text if it's the last section.
-        end_index = section_starts[i+1] -1 if i + 1 < len(section_starts) else len(lines)
-        
+        end_index = section_starts[i+1] - 1 if i + 1 < len(section_starts) else len(lines)
         section_lines = lines[start_index:end_index]
 
         current_product_components = []
         sku_regex = re.compile(r'^[A-Z0-9]{3}-[A-Z0-9]{4,}$')
+        base_qty = 1
 
-        # Step 3: Parse each line within the section.
         for line in section_lines:
-            # Split the line by one or more tabs to create columns.
             parts = re.split(r'\t+', line)
             
-            # A valid component line must have a SKU in the second position.
             if len(parts) >= 2 and sku_regex.match(parts[1].strip()):
                 desc = parts[0].strip()
                 
-                # The quantity is usually in the 4th position. Default to '1' if not found.
-                qty = "1"
+                qty_str = "1"
                 if len(parts) >= 4 and parts[3].strip().isdigit():
-                    qty = parts[3].strip()
+                    qty_str = parts[3].strip()
+                qty = int(qty_str)
 
-                # The first component found in a section is the main product title.
                 if not current_product_components:
+                    base_qty = qty
                     current_product_components.append(f"### {desc}\n")
                 else:
-                    # All subsequent components are formatted as list items.
-                    current_product_components.append(f"• {desc} (Qty: {qty})")
+                    display_qty = 1 if qty == base_qty else qty
+                    current_product_components.append(f"• {desc} (Qty: {display_qty})")
 
-        # Once a section is fully parsed, add the formatted block to our list.
         if current_product_components:
             all_formatted_products.append("\n".join(current_product_components))
 
-    # Step 4: Join all the formatted product blocks with a double newline for spacing.
     return "\n\n".join(all_formatted_products)
-
 
 def main():
     """
@@ -141,7 +128,6 @@ def main():
     st.title("🚀 Safari Micro - Dell Quote Formatter")
     st.markdown("Transform your Dell Quotes into a ChannelOnline-ready format with ease!")
     
-    # Added "Dell Email CTO" to the list of options
     format_type = st.radio(
         "Select Dell CTO Input Type:", 
         ["Dell Premier CTO", "TDSynnex Dell CTO", "Dell Email CTO"]
@@ -151,12 +137,11 @@ def main():
     
     if st.button("Format Output"):
         if raw_input.strip():
-            # Call the appropriate function based on user selection
             if format_type == "Dell Premier CTO":
                 formatted_text = format_premier_cto(raw_input)
             elif format_type == "TDSynnex Dell CTO":
                 formatted_text = format_tdsynnex_cto(raw_input)
-            else: # Handle the new email format
+            else:
                 formatted_text = format_email_cto(raw_input)
                 
             st.subheader("📝 Formatted Output:")
