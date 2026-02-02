@@ -71,53 +71,70 @@ def format_tdsynnex_cto(raw_text):
 
 def format_email_cto(raw_text):
     """
-    Formats tab-separated text copied from the 'View in Browser' 
-    page of a Dell email quote.
+    Formats text copied from the 'View in Browser' page of a Dell email quote.
+    Handles both tab-separated lines (classic copy) and newline-separated lists.
     """
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
-    section_starts = []
-    for i, line in enumerate(lines):
-        if "Description" in line and "SKU" in line and "Quantity" in line:
-            section_starts.append(i + 1)
-
-    if not section_starts:
-        return "Could not find any product detail sections."
-
-    all_formatted_products = []
+    # Regex to identify SKU lines (e.g., 210-BRXT or 5319-BBLZ)
+    sku_regex = re.compile(r'^[A-Z0-9]{3,}-[A-Z0-9]{4,}')
     
-    for i in range(len(section_starts)):
-        start_index = section_starts[i]
-        end_index = section_starts[i+1] - 1 if i + 1 < len(section_starts) else len(lines)
-        section_lines = lines[start_index:end_index]
-
-        current_product_components = []
-        # UPDATED: Changed {3} to {3,} to allow SKUs like 5319-BBLZ
-        sku_regex = re.compile(r'^[A-Z0-9]{3,}-[A-Z0-9]{4,}$')
-        base_qty = 1
-
-        for line in section_lines:
-            parts = re.split(r'\t+', line)
-            
-            if len(parts) >= 2 and sku_regex.match(parts[1].strip()):
-                desc = parts[0].strip()
+    parsed_items = []
+    
+    # scan the lines. If we find a SKU, we assume the previous line was the description
+    # and we look ahead for a quantity.
+    for i, line in enumerate(lines):
+        if sku_regex.match(line):
+            # We found a SKU line. 
+            # The Description is almost always the line immediately before it.
+            if i > 0:
+                description = lines[i-1]
                 
-                qty_str = "1"
-                if len(parts) >= 4 and parts[3].strip().isdigit():
-                    qty_str = parts[3].strip()
-                qty = int(qty_str)
+                # Look ahead for quantity (it might be 1 or 2 lines down depending on formatting)
+                qty = 1
+                found_qty = False
+                
+                # Check the next 3 lines for a standalone number
+                for offset in range(1, 4):
+                    if i + offset < len(lines):
+                        candidate = lines[i + offset]
+                        # If it's a digit (like '2') and distinct from the next SKU or dashes
+                        if candidate.isdigit():
+                            qty = int(candidate)
+                            found_qty = True
+                            break
+                        # Stop looking if we hit a text line that looks like a new description
+                        if len(candidate) > 5 and not candidate.isdigit() and not candidate.startswith('-'):
+                            break
+                
+                parsed_items.append({"desc": description, "qty": qty})
 
-                if not current_product_components:
-                    base_qty = qty
-                    current_product_components.append(f"### {desc}\n")
-                else:
-                    display_qty = 1 if qty == base_qty else qty
-                    current_product_components.append(f"• {desc} (Qty: {display_qty})")
+    if not parsed_items:
+        return "Could not detect any products. Ensure you copied the Description, SKU, and Quantity columns."
 
-        if current_product_components:
-            all_formatted_products.append("\n".join(current_product_components))
+    # Format the output
+    output_lines = []
+    
+    # We assume the first item found is the "Base" unit for the header
+    if parsed_items:
+        base_item = parsed_items[0]
+        output_lines.append(f"### {base_item['desc']}\n")
+        
+        # Determine base quantity from the first item
+        base_qty = base_item['qty']
 
-    return "\n\n".join(all_formatted_products)
+        # List all items (including the first one if you want, or skip it. 
+        # Usually it's cleaner to list components below)
+        for item in parsed_items[1:]:
+            # Clean up description (remove 'Quantity: ' if it somehow got in there)
+            clean_desc = item['desc'].replace("Quantity:", "").strip()
+            
+            # Logic to normalize quantity display
+            display_qty = 1 if item['qty'] == base_qty else item['qty']
+            
+            output_lines.append(f"• {clean_desc} (Qty: {display_qty})")
+
+    return "\n".join(output_lines)
 
 def format_generic_cto(raw_text):
     """
@@ -143,7 +160,7 @@ def format_generic_cto(raw_text):
 
     formatted_output = [f"### {product_name}\n"]
     
-    # UPDATED: Changed \w{3} to \w{3,} to allow longer SKU prefixes
+    # Regex to find component lines
     component_regex = re.compile(r'(.+?)(\w{3,}-\w{4,}-\d+-\d+)')
 
     for line in lines:
