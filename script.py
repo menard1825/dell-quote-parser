@@ -92,7 +92,8 @@ def format_email_cto(raw_text):
         section_lines = lines[start_index:end_index]
 
         current_product_components = []
-        sku_regex = re.compile(r'^[A-Z0-9]{3}-[A-Z0-9]{4,}$')
+        # UPDATED: Changed {3} to {3,} to allow SKUs like 5319-BBLZ
+        sku_regex = re.compile(r'^[A-Z0-9]{3,}-[A-Z0-9]{4,}$')
         base_qty = 1
 
         for line in section_lines:
@@ -142,8 +143,8 @@ def format_generic_cto(raw_text):
 
     formatted_output = [f"### {product_name}\n"]
     
-    # Regex to find component lines
-    component_regex = re.compile(r'(.+?)(\w{3}-\w{4,}-\d+-\d+)')
+    # UPDATED: Changed \w{3} to \w{3,} to allow longer SKU prefixes
+    component_regex = re.compile(r'(.+?)(\w{3,}-\w{4,}-\d+-\d+)')
 
     for line in lines:
         match = component_regex.match(line)
