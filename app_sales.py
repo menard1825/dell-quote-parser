@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 import streamlit as st
 
@@ -32,7 +33,7 @@ def friendly_warning(warning: str) -> str:
 
 def main():
     st.set_page_config(page_title="Safari Micro | Dell CTO Formatter", page_icon="🖥️", layout="wide")
-    st.image("https://safarimicro.com/wp-content/uploads/2022/01/SafariMicro-Color-with-Solid-Icon-Copy.png", width=230)
+    st.image(str(Path(__file__).resolve().parent / "assets" / "safari-micro-logo.webp"), width=230)
     st.title("Dell CTO → ChannelOnline")
     st.caption("Paste a Dell CTO build and turn it into clean, ChannelOnline-ready specs.")
 
