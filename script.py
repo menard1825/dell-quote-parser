@@ -1,5 +1,6 @@
 import streamlit as st
 import re
+from pathlib import Path
 
 def format_premier_cto(raw_text):
     """
@@ -182,7 +183,7 @@ def main():
     """
     Main function to run the Streamlit application.
     """
-    st.image("https://safarimicro.com/wp-content/uploads/2022/01/SafariMicro-Color-with-Solid-Icon-Copy.png", width=250)
+    st.image(str(Path(__file__).resolve().parent / "assets" / "safari-micro-logo.webp"), width=250)
     st.title("🚀 Safari Micro - Dell Quote Formatter")
     st.markdown("Transform your Dell Quotes into a ChannelOnline-ready format with ease!")
     
